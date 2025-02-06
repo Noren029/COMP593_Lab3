@@ -54,7 +54,7 @@ def process_sales_data(sales_csv, orders_dir):
         grand_total_df = pd.DataFrame({'ITEM NUMBER': [''],'ITEM PRICE': ['GRAND TOTAL:'], 'ITEM QUANTITY': [''], 'TOTAL PRICE': [f'${grand_total:.2f}']})
         # Determine the file name and full path of the Excel sheet
         print(grand_total_df)
-        order_df = pd.concat([order_df, grand_total_df], ignore_index=True)
+        order_df = pd.concat([order_df, grand_total_df])
         # Export the data to an Excel sheet
         order_df[0:10].to_excel('pandasout.xlsx')
         # TODO: Format the Excel sheet

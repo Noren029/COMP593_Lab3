@@ -1,0 +1,103 @@
+from sys import argv  # Needed for command line argument
+from os import path, makedirs  # Needed for file operations
+from datetime import date  # Needed for ISO date format
+import pandas as pd
+from openpyxl import load_workbook
+from openpyxl.styles import Font
+
+def main():
+    sales_csv = get_sales_csv()  # Get sales CSV file from command line
+    orders_dir = create_orders_dir(sales_csv)  # Create orders directory
+    process_sales_data(sales_csv, orders_dir)  # Process sales data
+
+# Get path of sales data CSV file from the command line
+def get_sales_csv():
+    if len(argv) < 2:  # Ensure CSV file is provided
+        print("Please provide the path to the CSV file. Exiting...")
+        exit(0)
+    if not path.isfile(argv[1]):  # Ensure file exists
+        print("The path does not point to a file. Exiting...")
+        exit(0)
+    return argv[1]
+
+# Create the directory to hold the individual order Excel sheets
+def create_orders_dir(sales_csv):
+    dirname = path.dirname(path.realpath(sales_csv))  # Get directory of CSV file
+    isodate = date.today().isoformat()  # Format date (YYYY-MM-DD)
+    orders_dir = path.join(dirname, f"Orders_{isodate}")  # Create directory name
+
+    if not path.isdir(orders_dir):  # Create folder if it doesn't exist
+        makedirs(orders_dir)
+    
+    return orders_dir  # ✅ Return the directory path
+
+# Split the sales data into individual orders and save to Excel sheets
+def process_sales_data(sales_csv, orders_dir):
+    df = pd.read_csv(sales_csv)  # ✅ Read the provided CSV file
+
+    # Convert ITEM PRICE and ITEM QUANTITY to numeric (to avoid errors)
+    df['ITEM PRICE'] = pd.to_numeric(df['ITEM PRICE'], errors='coerce')
+    df['ITEM QUANTITY'] = pd.to_numeric(df['ITEM QUANTITY'], errors='coerce')
+
+    # Insert a new "TOTAL PRICE" column
+    df.insert(7, 'TOTAL PRICE', df['ITEM QUANTITY'] * df['ITEM PRICE'])
+
+    # Remove unnecessary columns
+    df.drop(columns=['ADDRESS', 'CITY', 'STATE', 'POSTAL CODE', 'COUNTRY'], inplace=True)
+
+    # Process each order separately
+    for order_id, order_df in df.groupby('ORDER ID'):
+        order_df = order_df.copy()  # Avoid SettingWithCopyWarning
+        order_df.drop(columns=['ORDER ID'], inplace=True)  # Remove ORDER ID column
+        order_df.sort_values(by='ITEM NUMBER', inplace=True)  # Sort by ITEM NUMBER
+
+        # Compute grand total
+        grand_total = order_df['TOTAL PRICE'].sum()
+
+        # Format ITEM PRICE and TOTAL PRICE as currency
+        order_df['ITEM PRICE'] = order_df['ITEM PRICE'].apply(lambda x: f'${x:.2f}')
+        order_df['TOTAL PRICE'] = order_df['TOTAL PRICE'].apply(lambda x: f'${x:.2f}')
+
+        # Append grand total row
+        grand_total_df = pd.DataFrame({
+            'ITEM NUMBER': [''],  # Keep alignment
+            'ITEM PRICE': ['GRAND TOTAL:'],
+            'ITEM QUANTITY': [''],
+            'TOTAL PRICE': [f'${grand_total:.2f}']
+        })
+
+        order_df = pd.concat([order_df, grand_total_df], ignore_index=True)
+
+        # Save to a separate Excel file for each order
+        file_path = path.join(orders_dir, f'Order_{order_id}.xlsx')
+        order_df.to_excel(file_path, index=False)
+
+        # Format the Excel file (bold headers, column width)
+        format_excel(file_path)
+
+        print(f"Saved: {file_path}")  # Print confirmation
+
+# Apply formatting to the Excel file
+def format_excel(file_path):
+    wb = load_workbook(file_path)
+    ws = wb.active
+
+    # Apply bold font to headers
+    for cell in ws[1]:  # First row (headers)
+        cell.font = Font(bold=True)
+
+    # Auto-adjust column width
+    for col in ws.columns:
+        max_length = 0
+        col_letter = col[0].column_letter  # Get column letter
+        for cell in col:
+            try:
+                max_length = max(max_length, len(str(cell.value)))
+            except:
+                pass
+        ws.column_dimensions[col_letter].width = max_length + 2  # Adjust width
+
+    wb.save(file_path)  # Save formatted Excel file
+
+if __name__ == '__main__':
+    main()

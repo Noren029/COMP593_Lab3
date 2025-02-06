@@ -3,6 +3,8 @@ from os import path  # Needed to check for file
 import os  # Needed for makedirs
 from datetime import date  # Needed for ISO date format
 import pandas as pd
+from openpyxl import load_workbook
+from openpyxl.styles import Font
 
 def main():
     sales_csv = get_sales_csv()
@@ -51,13 +53,13 @@ def process_sales_data(sales_csv, orders_dir):
         grand_total = order_df['TOTAL PRICE'].sum()
         order_df['TOTAL PRICE'] = order_df['TOTAL PRICE'].apply(lambda x: f'${x:.2f}')
         order_df['ITEM PRICE'] = order_df['ITEM PRICE'].apply(lambda x: f'${x:.2f}')
-        grand_total_df = pd.DataFrame({'ITEM NUMBER': [''],'ITEM PRICE': ['GRAND TOTAL:'], 'ITEM QUANTITY': [''], 'TOTAL PRICE': [f'${grand_total:.2f}']})
+        grand_total_df = pd.DataFrame({'ITEM PRICE': ['GRAND TOTAL:'], 'TOTAL PRICE': [f'${grand_total:.2f}']})
         # Determine the file name and full path of the Excel sheet
-        print(grand_total_df)
-        order_df = pd.concat([order_df, grand_total_df])
+        order_df = pd.concat([order_df, grand_total_df], ignore_index=True)
         # Export the data to an Excel sheet
-        order_df[0:10].to_excel('pandasout.xlsx')
-        # TODO: Format the Excel sheet
+        order_df.to_excel('pandasout.xlsx', index=False)
+        print(grand_total_df)
+        # TODO: Format the Excel sheet  
     return
 
 if __name__ == '__main__':
